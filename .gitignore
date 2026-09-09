@@ -1,0 +1,14 @@
+# Secrets - never commit real API keys/tokens
+.env
+
+# Local database - contains real business/customer data
+*.db
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# OS
+.DS_Store

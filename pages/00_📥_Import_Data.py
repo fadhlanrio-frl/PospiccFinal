@@ -69,8 +69,11 @@ with tab_shopee:
             )
             st.link_button("🔗 Connect Shopee", shopee_api_client.get_auth_url(), type="primary", use_container_width=True)
             st.caption(
-                f"Redirect URL terdaftar: `{config.SHOPEE_REDIRECT_URL}` - harus PERSIS sama dengan yang "
-                "didaftarkan di App Management pada https://open.shopee.com/, kalau tidak Shopee akan menolak."
+                f"URL redirect yang dipakai: `{config.SHOPEE_REDIRECT_URL}`. Domain-nya "
+                "(protokol + host + port, TANPA path) harus terdaftar di App Management pada "
+                "https://open.shopee.com/ (field \"Test Redirect URL Domain\" untuk app berstatus "
+                "Developing) - misal cukup daftarkan `https://pospiccsmartdashboard.streamlit.app`, "
+                "bukan URL lengkap dengan `/Import_Data`."
             )
             with st.expander("🔍 Debug: nilai yang sedang dipakai aplikasi (cocokkan dengan Shopee console)"):
                 pid = config.SHOPEE_PARTNER_ID

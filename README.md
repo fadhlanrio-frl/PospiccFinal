@@ -123,8 +123,10 @@ streamlit run app.py
    `SHOPEE_PARTNER_ID` / `SHOPEE_PARTNER_KEY` di `.env`.
 4. Jalankan `streamlit run app.py`, buka halaman **📥 Import Data**, salin URL
    halaman itu persis dari address bar browser ke `SHOPEE_REDIRECT_URL` di
-   `.env`, lalu daftarkan URL yang sama persis di pengaturan Redirect URL app
-   kamu di Shopee Open Platform. Restart aplikasi setelah `.env` diisi.
+   `.env`. Di pengaturan app Shopee Open Platform ("Test Redirect URL Domain"
+   untuk app berstatus Developing), daftarkan **domain-nya saja** (protokol +
+   host + port, TANPA path) - misal `https://pospiccsmartdashboard.streamlit.app`,
+   bukan URL lengkap dengan `/Import_Data`. Restart aplikasi setelah `.env` diisi.
 5. Di tab **🛒 Shopee API** halaman Import Data, klik **Connect Shopee**,
    login sebagai penjual toko Pospicc, setujui akses. Kamu akan diarahkan
    balik otomatis dan toko akan tersambung.

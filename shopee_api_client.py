@@ -31,6 +31,13 @@ import database as db
 MAX_ORDER_WINDOW_DAYS = 15  # Shopee's get_order_list hard limit per call
 
 
+def _clean(value):
+    """Shopee uses the literal string "-" (not null/empty) as a placeholder
+    for unset fields like item_sku - treat it the same as missing so SKU
+    fallback logic actually triggers instead of storing "-" as a real SKU."""
+    return None if value in (None, "", "-") else value
+
+
 class ShopeeAPIError(Exception):
     pass
 
@@ -252,7 +259,7 @@ def fetch_recent_orders(since_minutes: float = 60) -> tuple[list[dict], list[dic
             }
         )
         for idx, item in enumerate(order.get("item_list", [])):
-            sku = item.get("model_sku") or item.get("item_sku") or f"SHOPEE-{item.get('item_id')}"
+            sku = _clean(item.get("model_sku")) or _clean(item.get("item_sku")) or f"SHOPEE-{item.get('item_id')}"
             line_items.append(
                 {
                     "order_id": f"{order_sn}-{idx}",
@@ -311,8 +318,12 @@ def fetch_products_and_inventory() -> tuple[list[dict], list[dict]]:
             item_id = item["item_id"]
             item_name = item.get("item_name", f"Item {item_id}")
             if item.get("has_model"):
+                # UNVERIFIED: get_model_list's response shape hasn't been checked
+                # against a real/documented example yet (unlike the item-level
+                # fields below, confirmed 2026-09-11 via Shopee's own API Test
+                # Tool docs) - adjust if this turns out wrong too.
                 for model in _list_models(item_id):
-                    sku = model.get("model_sku") or f"SHOPEE-{item_id}-{model.get('model_id')}"
+                    sku = _clean(model.get("model_sku")) or f"SHOPEE-{item_id}-{model.get('model_id')}"
                     price = (model.get("price_info") or [{}])[0].get("current_price", 0)
                     stock = (model.get("stock_info_v2") or {}).get("summary_info", {}).get("total_available_stock", 0)
                     products.append({
@@ -321,9 +332,13 @@ def fetch_products_and_inventory() -> tuple[list[dict], list[dict]]:
                     })
                     inventory.append({"sku": sku, "stock_on_hand": stock, "reserved_stock": 0})
             else:
-                sku = item.get("item_sku") or f"SHOPEE-{item_id}"
-                price = (item.get("price_info") or [{}])[0].get("current_price", 0)
-                stock = (item.get("stock_info_v2") or {}).get("summary_info", {}).get("total_available_stock", 0)
+                # Confirmed via Shopee's get_item_base_info doc example
+                # (2026-09-11): price is a flat "original_price" field, stock is
+                # a "seller_stock" list of {location_id, stock} - NOT the
+                # nested price_info/stock_info_v2 shape assumed earlier.
+                sku = _clean(item.get("item_sku")) or f"SHOPEE-{item_id}"
+                price = item.get("original_price", 0)
+                stock = sum(s.get("stock", 0) for s in item.get("seller_stock", []))
                 products.append({
                     "sku": sku, "product_name": item_name,
                     "category": "Uncategorized", "hpp": 0, "selling_price": price, "vendor": "Shopee",

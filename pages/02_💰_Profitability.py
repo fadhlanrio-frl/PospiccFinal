@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Profitability - Pospicc", page_icon="💰", layout="wide")
 st.title("💰 Profitability")
 st.caption("Estimasi profit menggunakan HPP dan harga jual per produk. Bandingkan skenario restock pakai kas internal vs pendanaan eksternal.")

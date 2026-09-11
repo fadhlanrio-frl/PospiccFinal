@@ -3,6 +3,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Shipping & Logistics - Pospicc", page_icon="🚚", layout="wide")
 st.title("🚚 Shipping & Logistics")
 st.caption("Kurir, ketepatan waktu kirim, dan berat paket - dari data order Shopee.")

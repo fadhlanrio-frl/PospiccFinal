@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Data Reliability - Pospicc", page_icon="✅", layout="wide")
 st.title("✅ Data Reliability")
 st.caption("Setiap modul menunjukkan kapan terakhir diperbarui, siapa/apa sumbernya, dan status current/stale/incomplete.")

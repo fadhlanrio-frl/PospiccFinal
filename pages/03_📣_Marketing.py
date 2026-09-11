@@ -6,6 +6,8 @@ import streamlit as st
 import config
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Marketing - Pospicc", page_icon="📣", layout="wide")
 st.title("📣 Marketing")
 

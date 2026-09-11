@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Discounts & Vouchers - Pospicc", page_icon="🎟️", layout="wide")
 st.title("🎟️ Discounts & Vouchers")
 st.caption("Berapa banyak revenue yang 'bocor' ke diskon/voucher, dan siapa yang menanggungnya (penjual vs Shopee).")

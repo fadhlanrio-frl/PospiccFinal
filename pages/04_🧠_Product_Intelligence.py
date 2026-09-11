@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Product Intelligence - Pospicc", page_icon="🧠", layout="wide")
 st.title("🧠 Product Intelligence")
 st.caption("Product thesis, market sentiment, internal observations, customer feedback, and vendor concerns.")

@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Customer Geography - Pospicc", page_icon="🌍", layout="wide")
 st.title("🌍 Customer Geography")
 st.caption("Dari mana pembeli Pospicc berasal - berguna untuk keputusan ekspansi gudang, target iklan lokal, atau event offline.")

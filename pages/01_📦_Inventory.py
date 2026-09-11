@@ -3,6 +3,8 @@ import streamlit as st
 import config
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Inventory - Pospicc", page_icon="📦", layout="wide")
 st.title("📦 Inventory")
 

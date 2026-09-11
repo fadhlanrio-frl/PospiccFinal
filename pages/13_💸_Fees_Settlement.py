@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Fees & Settlement - Pospicc", page_icon="💸", layout="wide")
 st.title("💸 Fees & Settlement")
 st.caption("Breakdown biaya Shopee yang SEBENARNYA (dari Income Report), bukan estimasi - untuk profitabilitas yang akurat.")

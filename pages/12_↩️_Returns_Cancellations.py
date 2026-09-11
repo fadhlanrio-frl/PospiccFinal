@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Returns & Cancellations - Pospicc", page_icon="↩️", layout="wide")
 st.title("↩️ Returns & Cancellations")
 st.caption("Produk mana yang paling sering dikembalikan/dibatalkan - sinyal penting untuk kualitas produk atau ekspektasi vs realita.")

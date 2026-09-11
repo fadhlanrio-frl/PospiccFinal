@@ -1,6 +1,9 @@
 import streamlit as st
 
 import ai_assistant
+import database as db
+
+db.init_db()
 
 st.set_page_config(page_title="AI Assistant - Pospicc", page_icon="🤖", layout="wide")
 st.title("🤖 AI Assistant")

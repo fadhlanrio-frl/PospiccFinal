@@ -5,6 +5,8 @@ import database as db
 import excel_importer
 import shopee_api_client
 
+db.init_db()
+
 st.set_page_config(page_title="Import Data - Pospicc", page_icon="📥", layout="wide")
 st.title("📥 Import Data")
 st.caption(

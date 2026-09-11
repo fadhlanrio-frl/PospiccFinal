@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Customer Insights - Pospicc", page_icon="👥", layout="wide")
 st.title("👥 Customer Insights")
 st.caption("Repeat buyer, metode pembayaran favorit, dan suara pembeli langsung dari catatan order.")

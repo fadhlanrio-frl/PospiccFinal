@@ -2,6 +2,8 @@ import streamlit as st
 
 import database as db
 
+db.init_db()
+
 st.set_page_config(page_title="Alerts - Pospicc", page_icon="🔔", layout="wide")
 st.title("🔔 Alerts History")
 st.caption("Semua automation: low-stock, stockout, sales spike, stale data, low ROAS, dan SKU conflicts.")

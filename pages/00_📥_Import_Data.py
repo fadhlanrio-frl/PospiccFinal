@@ -72,6 +72,20 @@ with tab_shopee:
                 f"Redirect URL terdaftar: `{config.SHOPEE_REDIRECT_URL}` - harus PERSIS sama dengan yang "
                 "didaftarkan di App Management pada https://open.shopee.com/, kalau tidak Shopee akan menolak."
             )
+            with st.expander("🔍 Debug: nilai yang sedang dipakai aplikasi (cocokkan dengan Shopee console)"):
+                pid = config.SHOPEE_PARTNER_ID
+                st.code(
+                    f"SHOPEE_PARTNER_ID = {pid!r}  (panjang: {len(pid)} karakter)\n"
+                    f"SHOPEE_PARTNER_KEY = {'*' * max(len(config.SHOPEE_PARTNER_KEY) - 4, 0)}"
+                    f"{config.SHOPEE_PARTNER_KEY[-4:] if config.SHOPEE_PARTNER_KEY else '(kosong)'}"
+                    f"  (panjang: {len(config.SHOPEE_PARTNER_KEY)} karakter)\n"
+                    f"SHOPEE_API_HOST = {config.SHOPEE_API_HOST!r}\n"
+                    f"SHOPEE_REDIRECT_URL = {config.SHOPEE_REDIRECT_URL!r}"
+                )
+                st.caption(
+                    "Tanda kutip `'...'` di sekeliling nilai itu sengaja ditampilkan (pakai `repr`) supaya "
+                    "spasi tersembunyi atau baris baru yang tidak sengaja ke-paste jadi kelihatan."
+                )
 
 # ============================================================================
 # TAB 2: Generic manual template (Inventory & Marketing - not in Shopee's API)

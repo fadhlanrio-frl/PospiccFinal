@@ -46,6 +46,19 @@ class ShopeeNotConnectedError(ShopeeAPIError):
     pass
 
 
+class ShopeeTokenInvalidError(ShopeeAPIError):
+    """access_token was rejected even though our stored copy isn't expired
+    yet by our own clock - most likely explanation: Shopee only allows one
+    active access_token per app+shop, and something else (e.g. the API Test
+    Tool's own "Get Access Token" button, used for the same shop) requested a
+    new one, silently invalidating ours. Only a fresh OAuth connect fixes
+    this - there's no API call that recovers it."""
+    pass
+
+
+TOKEN_ERROR_CODES = {"invalid_access_token", "error_auth", "access_token_expired"}
+
+
 def _sign(path: str, timestamp: int, access_token: str = "", shop_id: str = "") -> str:
     base_string = f"{config.SHOPEE_PARTNER_ID}{path}{timestamp}{access_token}{shop_id}"
     return hmac.new(
@@ -161,6 +174,14 @@ def _request(method: str, path: str, params: dict | None = None, json_body: dict
     except requests.RequestException as e:
         raise ShopeeAPIError(f"Shopee API request failed for {path}: {e}") from e
     if data.get("error"):
+        if data.get("error") in TOKEN_ERROR_CODES:
+            raise ShopeeTokenInvalidError(
+                f"Token Shopee tiba-tiba tidak valid lagi ({data.get('error')}). Kemungkinan besar "
+                "penyebabnya: ada permintaan token baru untuk toko yang sama dari tempat lain (misal "
+                "tombol 'Get Access Token' di API Test Tool) yang membatalkan token kita. Klik "
+                "'Hubungkan ulang / ganti toko' di bawah untuk connect ulang - hindari pakai API Test "
+                "Tool untuk toko yang sama sambil dashboard ini juga aktif."
+            )
         raise ShopeeAPIError(f"Shopee API error on {path}: {data.get('error')} - {data.get('message')}")
     return data.get("response", {})
 

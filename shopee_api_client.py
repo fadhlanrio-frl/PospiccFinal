@@ -173,7 +173,10 @@ def _list_order_sns(time_from: int, time_to: int) -> list[str]:
                 "time_to": time_to,
                 "page_size": 100,
                 "cursor": cursor,
-                "order_status": "ALL",
+                # order_status is OPTIONAL (confirmed via Shopee's own API Test
+                # Tool - no required-field marker, and "ALL" is NOT a valid
+                # value despite earlier assumption otherwise) - omit it
+                # entirely to get orders of every status.
             },
         )
         order_sns.extend(o["order_sn"] for o in resp.get("order_list", []))

@@ -1,6 +1,10 @@
 """
 config.py
-Central place that reads all secrets/settings from environment variables (.env).
+Central place that reads all secrets/settings from environment variables.
+Locally these come from .env; on Streamlit Community Cloud there is no .env
+file (it's gitignored), so secrets are entered in the app's Settings ->
+Secrets UI instead - pulled in here so the rest of the app can keep reading
+everything via plain os.getenv() either way.
 """
 import os
 from pathlib import Path
@@ -8,6 +12,13 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
+
+try:
+    import streamlit as st
+    for _key, _value in st.secrets.items():
+        os.environ.setdefault(_key, str(_value))
+except Exception:  # noqa: BLE001 - no secrets.toml locally, or not running under Streamlit at all
+    pass
 
 
 def _get_bool(key: str, default: bool = False) -> bool:

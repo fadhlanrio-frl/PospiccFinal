@@ -192,10 +192,18 @@ Semua ambang batas alert bisa diubah di `.env`:
   data baru — belum otomatis seperti sync Shopee API.
 - Belum ada sistem login/role — semua orang yang buka URL bisa lihat dan
   edit semua data.
+- **Data TIDAK permanen di Streamlit Community Cloud.** `pospicc.db` adalah
+  file SQLite lokal, sengaja tidak ikut di-commit ke GitHub (`.gitignore`)
+  supaya data asli tidak bocor ke repo publik - tapi konsekuensinya, disk
+  Streamlit Cloud itu ephemeral: setiap kali container restart (sleep karena
+  tidak diakses, atau redeploy otomatis setelah push kode baru), SELURUH isi
+  database ikut hilang - termasuk semua data yang sudah di-sync/import DAN
+  token koneksi Shopee (perlu Connect Shopee ulang tiap kali ini terjadi).
+  Untuk pemakaian jangka panjang/production yang datanya harus tetap ada,
+  `database.py` perlu dipindah ke database eksternal yang persisten (misal
+  Turso atau Postgres/Supabase), bukan file SQLite lokal.
 - Scheduler (Shopee API & Plugo) jalan di proses yang sama dengan Streamlit —
-  belum production-grade untuk uptime 24/7; kalau proses Streamlit-nya
-  restart, jadwal sync mulai dari awal lagi (bukan hilang datanya, cuma
-  timer-nya reset).
+  belum production-grade untuk uptime 24/7.
 - Fees & Settlement tidak lagi dapat data baru otomatis sejak upload Excel
   "Income Report" dihapus - lihat catatan di bagian "Modul dari Data Order
   Shopee" di atas.

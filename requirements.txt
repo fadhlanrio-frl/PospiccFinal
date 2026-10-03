@@ -6,3 +6,4 @@ apscheduler>=3.10.4
 openai>=1.50.0
 numpy>=1.26.0
 openpyxl>=3.1.0
+libsql>=0.1.0

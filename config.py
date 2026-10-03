@@ -65,4 +65,11 @@ STALE_DATA_HOURS = int(os.getenv("STALE_DATA_HOURS", "24"))
 LOW_ROAS_THRESHOLD = float(os.getenv("LOW_ROAS_THRESHOLD", "1.5"))
 SALES_SPIKE_MULTIPLIER = float(os.getenv("SALES_SPIKE_MULTIPLIER", "2.0"))
 
-DB_PATH = os.getenv("DB_PATH", str(BASE_DIR / "pospicc.db"))
+# --- Turso (hosted libSQL) - persistent database --------------------------
+# Local SQLite on Streamlit Community Cloud gets wiped on every container
+# restart/redeploy (confirmed 2026-09-13), so the database now lives here
+# instead. Get these from https://turso.tech/ -> create a database -> both
+# values are shown on the database's detail page (auth token needs to be
+# generated via "Create Token").
+TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL", "")
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")

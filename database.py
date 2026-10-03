@@ -1,8 +1,15 @@
 """
 database.py
-SQLite layer for the whole dashboard.
+Turso (libSQL) layer for the whole dashboard - a hosted, persistent SQLite-
+compatible database. Local SQLite files on Streamlit Community Cloud get
+wiped on every container restart/redeploy (confirmed 2026-09-13), so this
+replaces the old sqlite3-on-local-file setup to keep data across restarts.
+
+Note: the libsql Python client does NOT support named parameters (:key style)
+like sqlite3 does - only positional "?" placeholders with a tuple. Every
+query below was rewritten from the old :key form to match.
 """
-import sqlite3
+import libsql
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -163,14 +170,21 @@ CREATE TABLE IF NOT EXISTS shopee_oauth_tokens (
 
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(config.DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = libsql.connect(database=config.TURSO_DATABASE_URL, auth_token=config.TURSO_AUTH_TOKEN)
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
         conn.commit()
     finally:
         conn.close()
+
+
+def _dict_rows(cursor) -> list[dict]:
+    """libsql cursors return plain tuples, not sqlite3.Row - rebuild dicts
+    from cursor.description (column names) where callers need name-based
+    access."""
+    columns = [d[0] for d in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def init_db():
@@ -201,10 +215,11 @@ def get_shopee_tokens() -> dict | None:
     """Returns the most recently connected Shopee shop's tokens, or None if
     no shop has ever been authorized yet."""
     with get_conn() as conn:
-        row = conn.execute(
+        cursor = conn.execute(
             "SELECT * FROM shopee_oauth_tokens ORDER BY updated_at DESC LIMIT 1"
-        ).fetchone()
-    return dict(row) if row else None
+        )
+        rows = _dict_rows(cursor)
+    return rows[0] if rows else None
 
 
 def get_sales_reference_datetime() -> str:
@@ -214,16 +229,16 @@ def get_sales_reference_datetime() -> str:
     time - otherwise every module goes blank as soon as 'now' drifts past
     whatever period the last import covered."""
     with get_conn() as conn:
-        row = conn.execute("SELECT MAX(order_date) AS latest FROM sales_orders").fetchone()
-    return row["latest"] if row and row["latest"] else datetime.utcnow().isoformat()
+        row = conn.execute("SELECT MAX(order_date) FROM sales_orders").fetchone()
+    return row[0] if row and row[0] else datetime.utcnow().isoformat()
 
 
 def get_marketing_reference_date() -> str:
     """Same idea as get_sales_reference_datetime(), anchored to marketing_metrics
     (metric_date is date-only, no time component)."""
     with get_conn() as conn:
-        row = conn.execute("SELECT MAX(metric_date) AS latest FROM marketing_metrics").fetchone()
-    return row["latest"] if row and row["latest"] else datetime.utcnow().strftime("%Y-%m-%d")
+        row = conn.execute("SELECT MAX(metric_date) FROM marketing_metrics").fetchone()
+    return row[0] if row and row[0] else datetime.utcnow().strftime("%Y-%m-%d")
 
 
 def mark_data_source(module: str, updated_by: str, source: str, status: str = "current"):
@@ -248,7 +263,7 @@ def upsert_products(products: list[dict]):
             conn.execute(
                 """
                 INSERT INTO products (sku, product_name, category, hpp, selling_price, vendor)
-                VALUES (:sku, :product_name, :category, :hpp, :selling_price, :vendor)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(sku) DO UPDATE SET
                     product_name=excluded.product_name,
                     category=excluded.category,
@@ -256,22 +271,23 @@ def upsert_products(products: list[dict]):
                     selling_price=excluded.selling_price,
                     vendor=excluded.vendor
                 """,
-                p,
+                (p["sku"], p["product_name"], p["category"], p["hpp"], p["selling_price"], p["vendor"]),
             )
 
 
 def upsert_order_headers(headers: list[dict]):
     with get_conn() as conn:
         for h in headers:
-            cols = ", ".join(h.keys())
-            placeholders = ", ".join(f":{k}" for k in h.keys())
-            update_clause = ", ".join(f"{k}=excluded.{k}" for k in h.keys() if k != "no_pesanan")
+            keys = list(h.keys())
+            cols = ", ".join(keys)
+            placeholders = ", ".join("?" for _ in keys)
+            update_clause = ", ".join(f"{k}=excluded.{k}" for k in keys if k != "no_pesanan")
             conn.execute(
                 f"""
                 INSERT INTO order_headers ({cols}) VALUES ({placeholders})
                 ON CONFLICT(no_pesanan) DO UPDATE SET {update_clause}
                 """,
-                h,
+                tuple(h[k] for k in keys),
             )
 
 
@@ -286,10 +302,10 @@ def insert_sales_orders(orders: list[dict]):
                 INSERT OR REPLACE INTO sales_orders
                     (order_id, no_pesanan, sku, variant_name, order_date, units_sold,
                      returned_quantity, revenue, channel)
-                VALUES (:order_id, :no_pesanan, :sku, :variant_name, :order_date, :units_sold,
-                        :returned_quantity, :revenue, :channel)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                o,
+                (o["order_id"], o["no_pesanan"], o["sku"], o["variant_name"], o["order_date"],
+                 o["units_sold"], o["returned_quantity"], o["revenue"], o["channel"]),
             )
 
 
@@ -299,9 +315,9 @@ def insert_inventory_snapshots(snapshots: list[dict]):
             conn.execute(
                 """
                 INSERT INTO inventory_snapshots (sku, stock_on_hand, reserved_stock)
-                VALUES (:sku, :stock_on_hand, :reserved_stock)
+                VALUES (?, ?, ?)
                 """,
-                s,
+                (s["sku"], s["stock_on_hand"], s["reserved_stock"]),
             )
 
 
@@ -312,9 +328,9 @@ def insert_marketing_metrics(rows: list[dict]):
                 """
                 INSERT INTO marketing_metrics
                     (sku, metric_date, ads_spend, attributed_revenue, is_paid)
-                VALUES (:sku, :metric_date, :ads_spend, :attributed_revenue, :is_paid)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                r,
+                (r["sku"], r["metric_date"], r["ads_spend"], r["attributed_revenue"], r["is_paid"]),
             )
 
 
@@ -325,10 +341,11 @@ def add_product_intelligence(entry: dict):
             INSERT INTO product_intelligence
                 (sku, market_sentiment, internal_observation, customer_likes,
                  customer_dislikes, vendor_concerns, entered_by)
-            VALUES (:sku, :market_sentiment, :internal_observation, :customer_likes,
-                    :customer_dislikes, :vendor_concerns, :entered_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            entry,
+            (entry["sku"], entry["market_sentiment"], entry["internal_observation"],
+             entry["customer_likes"], entry["customer_dislikes"], entry["vendor_concerns"],
+             entry["entered_by"]),
         )
 
 
@@ -343,7 +360,7 @@ def log_alert(alert_type: str, sku: str, message: str, severity: str = "warning"
 def get_existing_products() -> dict:
     with get_conn() as conn:
         rows = conn.execute("SELECT sku, hpp FROM products").fetchall()
-        return {r["sku"]: r["hpp"] for r in rows}
+        return {r[0]: r[1] for r in rows}
 
 
 def upsert_income_summary(record: dict):
@@ -353,8 +370,7 @@ def upsert_income_summary(record: dict):
             INSERT INTO marketplace_income_summary
                 (period_start, period_end, marketplace, username,
                  total_pendapatan, total_pengeluaran, total_dilepas)
-            VALUES (:period_start, :period_end, :marketplace, :username,
-                    :total_pendapatan, :total_pengeluaran, :total_dilepas)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(period_start, period_end, marketplace) DO UPDATE SET
                 username=excluded.username,
                 total_pendapatan=excluded.total_pendapatan,
@@ -362,7 +378,8 @@ def upsert_income_summary(record: dict):
                 total_dilepas=excluded.total_dilepas,
                 imported_at=datetime('now')
             """,
-            record,
+            (record["period_start"], record["period_end"], record["marketplace"], record["username"],
+             record["total_pendapatan"], record["total_pengeluaran"], record["total_dilepas"]),
         )
 
 
@@ -375,9 +392,7 @@ def upsert_order_settlements(settlements: list[dict]):
                     (no_pesanan, order_date, release_date, total_income, biaya_administrasi,
                      biaya_proses_pesanan, biaya_transaksi, biaya_komisi_ams, biaya_kampanye,
                      pph22, other_fees, source)
-                VALUES (:no_pesanan, :order_date, :release_date, :total_income, :biaya_administrasi,
-                        :biaya_proses_pesanan, :biaya_transaksi, :biaya_komisi_ams, :biaya_kampanye,
-                        :pph22, :other_fees, :source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(no_pesanan) DO UPDATE SET
                     order_date=excluded.order_date,
                     release_date=excluded.release_date,
@@ -392,7 +407,9 @@ def upsert_order_settlements(settlements: list[dict]):
                     source=excluded.source,
                     imported_at=datetime('now')
                 """,
-                s,
+                (s["no_pesanan"], s["order_date"], s["release_date"], s["total_income"],
+                 s["biaya_administrasi"], s["biaya_proses_pesanan"], s["biaya_transaksi"],
+                 s["biaya_komisi_ams"], s["biaya_kampanye"], s["pph22"], s["other_fees"], s["source"]),
             )
 
 
@@ -400,4 +417,7 @@ def fetch_df(query: str, params: tuple = ()):
     import pandas as pd
 
     with get_conn() as conn:
-        return pd.read_sql_query(query, conn, params=params)
+        cursor = conn.execute(query, params)
+        columns = [d[0] for d in cursor.description] if cursor.description else []
+        rows = cursor.fetchall()
+    return pd.DataFrame(rows, columns=columns)

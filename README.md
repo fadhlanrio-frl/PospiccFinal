@@ -102,19 +102,30 @@ source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Setup environment variables
+### 3. Setup database (Turso - persisten)
+Local SQLite file di Streamlit Community Cloud hilang total tiap container
+restart/redeploy - jadi database-nya sekarang di Turso (hosted, gratis untuk
+skala dashboard ini), bukan file lokal.
+1. Daftar di https://turso.tech/.
+2. Buat database baru (nama bebas, misal "pospicc").
+3. Di halaman detail database, salin URL-nya (`libsql://...`).
+4. Klik "Create Token", salin token-nya.
+5. Isi `TURSO_DATABASE_URL` dan `TURSO_AUTH_TOKEN` di `.env` (lihat step 4).
+
+### 4. Setup environment variables
 ```bash
 cp .env.example .env
 ```
 Buka `.env` dan isi minimal `OPENAI_API_KEY` (dari platform.openai.com) untuk
-fitur AI Assistant. Biarkan `DATA_SOURCE_MODE=excel` untuk sekarang.
+fitur AI Assistant, dan `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` dari step 3.
+Biarkan `DATA_SOURCE_MODE=excel` untuk sekarang.
 
-### 4. Jalankan aplikasi
+### 5. Jalankan aplikasi
 ```bash
 streamlit run app.py
 ```
 
-### 5. Setup Shopee API (sumber data utama)
+### 6. Setup Shopee API (sumber data utama)
 1. Buka https://open.shopee.com/ → daftar sebagai Partner (pakai akun Shopee
    yang punya akses admin ke toko Pospicc).
 2. Partner Portal → **App Management** → **Create App** (pilih tipe app untuk
@@ -129,12 +140,14 @@ streamlit run app.py
    bukan URL lengkap dengan `/Import_Data`. Restart aplikasi setelah `.env` diisi.
 5. Di tab **🛒 Shopee API** halaman Import Data, klik **Connect Shopee**,
    login sebagai penjual toko Pospicc, setujui akses. Kamu akan diarahkan
-   balik otomatis dan toko akan tersambung.
+   balik otomatis dan toko akan tersambung. Karena token sekarang tersimpan di
+   Turso (bukan file lokal), **ini cuma perlu dilakukan sekali** - tidak akan
+   hilang lagi saat app restart.
 6. Sync pertama akan menarik ~24 jam data terakhir; sesudah itu otomatis tiap
    `SHOPEE_SYNC_INTERVAL_MINUTES` (default 60) menit, atau klik **Sync Shopee
    sekarang** kapan saja untuk sync manual.
 
-### 6. Isi Inventory & Marketing (tidak disediakan Shopee API)
+### 7. Isi Inventory & Marketing (tidak disediakan Shopee API)
 1. Di halaman **📥 Import Data**, buka tab **📝 Template Manual**.
 2. Klik **Download Template Excel**, isi sheet **Inventory** (snapshot stock
    per SKU) dan **Marketing** (ads spend/ROAS per produk per tanggal).
@@ -144,7 +157,7 @@ Untuk update rutin, isi ulang sheet-nya dan upload lagi — sistem menyimpan
 snapshot inventory terbaru dan menambahkan data marketing baru tanpa
 menghapus histori sebelumnya.
 
-### 7. Coba fitur AI Assistant
+### 8. Coba fitur AI Assistant
 Buka halaman **🤖 AI Assistant**, coba tanya:
 - "Produk mana yang perlu direstock bulan ini, dan kenapa?"
 - "Apakah kita kehilangan penjualan karena stok terlalu rendah?"
@@ -192,16 +205,11 @@ Semua ambang batas alert bisa diubah di `.env`:
   data baru — belum otomatis seperti sync Shopee API.
 - Belum ada sistem login/role — semua orang yang buka URL bisa lihat dan
   edit semua data.
-- **Data TIDAK permanen di Streamlit Community Cloud.** `pospicc.db` adalah
-  file SQLite lokal, sengaja tidak ikut di-commit ke GitHub (`.gitignore`)
-  supaya data asli tidak bocor ke repo publik - tapi konsekuensinya, disk
-  Streamlit Cloud itu ephemeral: setiap kali container restart (sleep karena
-  tidak diakses, atau redeploy otomatis setelah push kode baru), SELURUH isi
-  database ikut hilang - termasuk semua data yang sudah di-sync/import DAN
-  token koneksi Shopee (perlu Connect Shopee ulang tiap kali ini terjadi).
-  Untuk pemakaian jangka panjang/production yang datanya harus tetap ada,
-  `database.py` perlu dipindah ke database eksternal yang persisten (misal
-  Turso atau Postgres/Supabase), bukan file SQLite lokal.
+- ~~Data TIDAK permanen di Streamlit Community Cloud~~ **SUDAH DIPERBAIKI
+  (2026-10-04)** — database dipindah dari file SQLite lokal ke **Turso**
+  (hosted libSQL), jadi data (termasuk token Shopee) tidak lagi hilang saat
+  container restart/redeploy. Lihat "Setup database (Turso)" di atas untuk
+  cara setup-nya.
 - Scheduler (Shopee API & Plugo) jalan di proses yang sama dengan Streamlit —
   belum production-grade untuk uptime 24/7.
 - Fees & Settlement tidak lagi dapat data baru otomatis sejak upload Excel

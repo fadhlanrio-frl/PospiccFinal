@@ -107,6 +107,12 @@ st.divider()
 # --- Sales Module ---------------------------------------------------------
 st.subheader("📈 Sales")
 
+period_choice = st.radio(
+    "Periode tampilan:", ["Harian", "Mingguan", "Bulanan"], index=1, horizontal=True,
+)
+period_days = {"Harian": 1, "Mingguan": 7, "Bulanan": 30}[period_choice]
+period_label = {"Harian": "1d", "Mingguan": "7d", "Bulanan": "30d"}[period_choice]
+
 sales_ref = db.get_sales_reference_datetime()
 sales = db.fetch_df(
     """
@@ -114,17 +120,17 @@ sales = db.fetch_df(
            SUM(s.units_sold) AS units_sold,
            SUM(s.revenue) AS revenue,
            ROUND(SUM(s.revenue) * 1.0 / NULLIF(SUM(s.units_sold), 0), 0) AS avg_selling_price,
-           ROUND(SUM(s.units_sold) * 1.0 / 7, 2) AS daily_velocity
+           ROUND(SUM(s.units_sold) * 1.0 / ?, 2) AS daily_velocity
     FROM sales_orders s
     JOIN products p ON p.sku = s.sku
-    WHERE s.order_date >= datetime(?, '-7 days')
+    WHERE s.order_date >= datetime(?, '-' || ? || ' days')
     GROUP BY p.sku, p.product_name
     ORDER BY revenue DESC
     """,
-    (sales_ref,),
+    (period_days, sales_ref, period_days),
 )
 if not sales.empty:
-    st.caption(f"Menampilkan 7 hari data terakhir yang tersedia (hingga {sales_ref[:10]}).")
+    st.caption(f"Menampilkan data {period_choice.lower()} ({period_days} hari terakhir yang tersedia, hingga {sales_ref[:10]}).")
 
 if sales.empty:
     hint = " atau ".join(
@@ -140,8 +146,8 @@ if sales.empty:
     st.info(f"Belum ada data sales. Coba {hint} untuk menarik data terbaru.")
 else:
     col_a, col_b, col_c = st.columns(3)
-    col_a.metric("Total Revenue (7d)", f"Rp{sales['revenue'].sum():,.0f}")
-    col_b.metric("Total Units (7d)", f"{sales['units_sold'].sum():,.0f}")
+    col_a.metric(f"Total Revenue ({period_label})", f"Rp{sales['revenue'].sum():,.0f}")
+    col_b.metric(f"Total Units ({period_label})", f"{sales['units_sold'].sum():,.0f}")
     col_c.metric("Avg. Selling Price", f"Rp{sales['avg_selling_price'].mean():,.0f}")
 
     st.markdown("**Top Sellers**")

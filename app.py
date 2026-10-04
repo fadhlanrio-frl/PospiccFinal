@@ -107,11 +107,18 @@ st.divider()
 # --- Sales Module ---------------------------------------------------------
 st.subheader("📈 Sales")
 
+PERIOD_OPTIONS = {
+    "1 Hari Terakhir": 1,
+    "7 Hari Terakhir": 7,
+    "1 Bulan Terakhir": 30,
+    "3 Bulan Terakhir": 90,
+    "6 Bulan Terakhir": 180,
+}
 period_choice = st.radio(
-    "Periode tampilan:", ["Harian", "Mingguan", "Bulanan"], index=1, horizontal=True,
+    "Periode tampilan:", list(PERIOD_OPTIONS.keys()), index=1, horizontal=True,
 )
-period_days = {"Harian": 1, "Mingguan": 7, "Bulanan": 30}[period_choice]
-period_label = {"Harian": "1d", "Mingguan": "7d", "Bulanan": "30d"}[period_choice]
+period_days = PERIOD_OPTIONS[period_choice]
+period_label = f"{period_days}d"
 
 sales_ref = db.get_sales_reference_datetime()
 sales = db.fetch_df(
@@ -130,7 +137,7 @@ sales = db.fetch_df(
     (period_days, sales_ref, period_days),
 )
 if not sales.empty:
-    st.caption(f"Menampilkan data {period_choice.lower()} ({period_days} hari terakhir yang tersedia, hingga {sales_ref[:10]}).")
+    st.caption(f"Menampilkan data {period_choice.lower()} dari data yang tersedia (hingga {sales_ref[:10]}).")
 
 if sales.empty:
     hint = " atau ".join(

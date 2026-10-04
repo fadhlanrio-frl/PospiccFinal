@@ -62,6 +62,32 @@ with tab_shopee:
                     else:
                         st.success("Sync selesai. Buka halaman **Home** untuk lihat data terbaru.")
 
+            with st.expander("📜 Tarik Riwayat Historis (data sebelum toko ini connect)"):
+                st.caption(
+                    "Sync otomatis tiap jam cuma menarik order baru/terupdate SEJAK toko ini connect - "
+                    "order yang lebih lama dari itu tidak pernah ikut tertarik walau sebenarnya masih ada "
+                    "di Shopee. Pakai ini SEKALI untuk menarik riwayat yang lebih lama."
+                )
+                backfill_label = st.selectbox(
+                    "Tarik order dari berapa lama ke belakang?",
+                    ["1 Bulan", "3 Bulan", "6 Bulan", "12 Bulan"], index=1, key="backfill_period",
+                )
+                backfill_days = {"1 Bulan": 30, "3 Bulan": 90, "6 Bulan": 180, "12 Bulan": 365}[backfill_label]
+                st.caption(
+                    f"Akan menarik dalam beberapa potongan 15 harian (batas API Shopee) - makin lama "
+                    f"periodenya, makin banyak panggilan API dan makin lama prosesnya. Aman dijalankan "
+                    f"berkali-kali, order yang sudah ada tidak akan dobel."
+                )
+                if st.button(f"📜 Tarik riwayat {backfill_label.lower()} ke belakang", key="shopee_backfill"):
+                    import shopee_scheduler
+                    with st.spinner(f"Menarik riwayat order {backfill_label.lower()} ke belakang - ini bisa makan waktu beberapa menit..."):
+                        try:
+                            saved = shopee_scheduler.backfill_historical(backfill_days)
+                        except shopee_api_client.ShopeeAPIError as e:
+                            st.error(f"Tarik riwayat gagal: {e}")
+                        else:
+                            st.success(f"Selesai - {saved} baris order diproses. Buka halaman **Home**, pilih periode tampilan yang sesuai untuk lihat datanya.")
+
             with st.expander("Hubungkan ulang / ganti toko"):
                 st.link_button("🔗 Connect Shopee (ulang)", shopee_api_client.get_auth_url(), use_container_width=True)
         else:

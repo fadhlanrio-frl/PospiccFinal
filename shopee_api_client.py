@@ -239,7 +239,33 @@ def fetch_recent_orders(since_minutes: float = 60) -> tuple[list[dict], list[dic
     per call, so the lookback is capped even if the scheduler was down longer."""
     now = int(time.time())
     time_from = now - int(min(since_minutes, MAX_ORDER_WINDOW_DAYS * 24 * 60) * 60)
-    order_sns = _list_order_sns(time_from, now)
+    return _fetch_orders_between(time_from, now)
+
+
+def fetch_historical_orders(days_back: int) -> tuple[list[dict], list[dict]]:
+    """One-time backfill for orders older than the regular hourly sync has
+    ever looked at - e.g. the dashboard went live partway through the shop's
+    real history, so routine syncs (which only ever look at "since last
+    sync") never pulled anything from before that point. Walks backward in
+    <=15-day chunks (Shopee's hard limit per get_order_list call) from now
+    to `days_back` days ago."""
+    now = int(time.time())
+    earliest = now - days_back * 24 * 60 * 60
+    chunk_seconds = MAX_ORDER_WINDOW_DAYS * 24 * 60 * 60
+
+    all_headers, all_line_items = [], []
+    window_end = now
+    while window_end > earliest:
+        window_start = max(window_end - chunk_seconds, earliest)
+        headers, line_items = _fetch_orders_between(window_start, window_end)
+        all_headers.extend(headers)
+        all_line_items.extend(line_items)
+        window_end = window_start
+    return all_headers, all_line_items
+
+
+def _fetch_orders_between(time_from: int, time_to: int) -> tuple[list[dict], list[dict]]:
+    order_sns = _list_order_sns(time_from, time_to)
     if not order_sns:
         return [], []
 

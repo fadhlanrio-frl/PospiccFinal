@@ -21,7 +21,6 @@ def sync_once():
     since_minutes = 24 * 60 if _last_synced_at is None else (now - _last_synced_at).total_seconds() / 60
 
     products, inventory = shopee_api_client.fetch_products_and_inventory()
-    known_skus = {p["sku"] for p in products}
     if products:
         db.upsert_products(products)
         db.mark_data_source("Sales", "system", "Shopee API", "current")
@@ -32,34 +31,55 @@ def sync_once():
 
     headers, line_items = shopee_api_client.fetch_recent_orders(since_minutes=since_minutes)
     _last_synced_at = now
-
-    if line_items:
-        # Auto-register any SKU seen in an order that get_item_list didn't
-        # return (e.g. delisted product) - mirrors the old Excel importer's
-        # fallback so Sales never silently drops a line item for a missing FK.
-        new_products = []
-        for item in line_items:
-            sku = item["sku"]
-            if sku not in known_skus:
-                new_products.append({
-                    "sku": sku, "product_name": item.pop("_product_name", sku) or sku,
-                    "category": "Uncategorized", "hpp": 0,
-                    "selling_price": item.pop("_selling_price", 0) or 0, "vendor": "Shopee",
-                })
-                known_skus.add(sku)
-            else:
-                item.pop("_product_name", None)
-                item.pop("_selling_price", None)
-        if new_products:
-            db.upsert_products(new_products)
-
-        db.upsert_order_headers(headers)
-        db.insert_sales_orders(line_items)
-        db.mark_data_source("Sales", "system", "Shopee API", "current")
-        db.mark_data_source("Profitability", "system", "Shopee API", "current")
-        _capture_buyer_notes(headers, line_items)
+    _save_orders(headers, line_items)
 
     alerts.run_all_checks()
+
+
+def backfill_historical(days_back: int) -> int:
+    """One-time pull of orders older than the regular hourly sync has ever
+    looked at (e.g. the shop had months of real history before this
+    dashboard went live). Separate from sync_once()'s incremental window -
+    see shopee_api_client.fetch_historical_orders(). Returns how many line
+    items were saved, so the caller can show a useful confirmation."""
+    global _last_synced_at
+    headers, line_items = shopee_api_client.fetch_historical_orders(days_back)
+    _save_orders(headers, line_items)
+    now = datetime.utcnow()
+    if _last_synced_at is None or now > _last_synced_at:
+        _last_synced_at = now  # avoid sync_once() re-pulling the same range next hour
+    alerts.run_all_checks()
+    return len(line_items)
+
+
+def _save_orders(headers: list[dict], line_items: list[dict]):
+    if not line_items:
+        return
+    # Auto-register any SKU seen in an order that get_item_list didn't return
+    # (e.g. delisted product) - mirrors the old Excel importer's fallback so
+    # Sales never silently drops a line item for a missing FK.
+    known_skus = set(db.get_existing_products().keys())
+    new_products = []
+    for item in line_items:
+        sku = item["sku"]
+        if sku not in known_skus:
+            new_products.append({
+                "sku": sku, "product_name": item.pop("_product_name", sku) or sku,
+                "category": "Uncategorized", "hpp": 0,
+                "selling_price": item.pop("_selling_price", 0) or 0, "vendor": "Shopee",
+            })
+            known_skus.add(sku)
+        else:
+            item.pop("_product_name", None)
+            item.pop("_selling_price", None)
+    if new_products:
+        db.upsert_products(new_products)
+
+    db.upsert_order_headers(headers)
+    db.insert_sales_orders(line_items)
+    db.mark_data_source("Sales", "system", "Shopee API", "current")
+    db.mark_data_source("Profitability", "system", "Shopee API", "current")
+    _capture_buyer_notes(headers, line_items)
 
 
 def _capture_buyer_notes(headers: list[dict], line_items: list[dict]):

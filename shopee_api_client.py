@@ -264,6 +264,13 @@ def fetch_historical_orders(days_back: int) -> tuple[list[dict], list[dict]]:
     return all_headers, all_line_items
 
 
+# Shopee order_status values that mean the order never completed as a real
+# sale - the buyer (or seller/system) backed out before it shipped/was paid
+# out. Line items for these are kept OUT of sales_orders so they don't
+# inflate revenue/units figures anywhere in the dashboard.
+CANCELLED_STATUSES = {"CANCELLED", "IN_CANCEL"}
+
+
 def _fetch_orders_between(time_from: int, time_to: int) -> tuple[list[dict], list[dict]]:
     order_sns = _list_order_sns(time_from, time_to)
     if not order_sns:
@@ -272,6 +279,8 @@ def _fetch_orders_between(time_from: int, time_to: int) -> tuple[list[dict], lis
     headers, line_items = [], []
     for order in _fetch_order_details(order_sns):
         order_sn = order.get("order_sn")
+        order_status = order.get("order_status")
+        is_cancelled = order_status in CANCELLED_STATUSES
         create_time = order.get("create_time")
         order_date = (
             datetime.utcfromtimestamp(create_time).isoformat() if create_time else datetime.utcnow().isoformat()
@@ -280,8 +289,8 @@ def _fetch_orders_between(time_from: int, time_to: int) -> tuple[list[dict], lis
         headers.append(
             {
                 "no_pesanan": order_sn,
-                "status_pesanan": order.get("order_status"),
-                "cancellation_status": None,
+                "status_pesanan": order_status,
+                "cancellation_status": order_status if is_cancelled else None,
                 "order_date": order_date,
                 "payment_time": None,
                 "ship_by_date": None,
@@ -305,6 +314,8 @@ def _fetch_orders_between(time_from: int, time_to: int) -> tuple[list[dict], lis
                 "province": addr.get("state"),
             }
         )
+        if is_cancelled:
+            continue  # order_headers row above still records it, just no sales_orders line items
         for idx, item in enumerate(order.get("item_list", [])):
             sku = _clean(item.get("model_sku")) or _clean(item.get("item_sku")) or f"SHOPEE-{item.get('item_id')}"
             line_items.append(

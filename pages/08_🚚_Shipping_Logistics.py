@@ -14,6 +14,7 @@ headers = db.fetch_df(
     SELECT no_pesanan, courier, shipping_option, ship_by_date, arranged_shipping_time,
            completed_time, order_date, total_weight_gr
     FROM order_headers
+    WHERE cancellation_status IS NULL
     """
 )
 

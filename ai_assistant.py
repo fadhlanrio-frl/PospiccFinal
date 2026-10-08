@@ -101,25 +101,29 @@ def _build_data_context() -> str:
     geo = db.fetch_df(
         """
         SELECT province, COUNT(*) AS orders, SUM(total_payment) AS total_payment
-        FROM order_headers GROUP BY province ORDER BY orders DESC LIMIT 8
+        FROM order_headers WHERE cancellation_status IS NULL
+        GROUP BY province ORDER BY orders DESC LIMIT 8
         """
     )
     parts.append("=== TOP PROVINCES BY ORDER COUNT ===\n" + (geo.to_string(index=False) if not geo.empty else "(no order header data yet)"))
 
     payment_methods = db.fetch_df(
-        "SELECT payment_method, COUNT(*) AS orders FROM order_headers GROUP BY payment_method ORDER BY orders DESC"
+        "SELECT payment_method, COUNT(*) AS orders FROM order_headers "
+        "WHERE cancellation_status IS NULL GROUP BY payment_method ORDER BY orders DESC"
     )
     parts.append("=== PAYMENT METHOD BREAKDOWN ===\n" + (payment_methods.to_string(index=False) if not payment_methods.empty else "(no order header data yet)"))
 
     courier_stats = db.fetch_df(
-        "SELECT courier, COUNT(*) AS orders FROM order_headers GROUP BY courier ORDER BY orders DESC"
+        "SELECT courier, COUNT(*) AS orders FROM order_headers "
+        "WHERE cancellation_status IS NULL GROUP BY courier ORDER BY orders DESC"
     )
     parts.append("=== COURIER USAGE ===\n" + (courier_stats.to_string(index=False) if not courier_stats.empty else "(no order header data yet)"))
 
     repeat_buyers = db.fetch_df(
         """
         SELECT buyer_username, COUNT(*) AS orders, SUM(total_payment) AS total_spent
-        FROM order_headers GROUP BY buyer_username HAVING orders > 1 ORDER BY orders DESC LIMIT 10
+        FROM order_headers WHERE cancellation_status IS NULL
+        GROUP BY buyer_username HAVING orders > 1 ORDER BY orders DESC LIMIT 10
         """
     )
     parts.append(
@@ -140,7 +144,7 @@ def _build_data_context() -> str:
         """
         SELECT ROUND(SUM(voucher_seller),0) AS voucher_by_seller, ROUND(SUM(voucher_shopee),0) AS voucher_by_shopee,
                ROUND(SUM(cashback_koin),0) AS cashback_koin, ROUND(SUM(creditcard_discount),0) AS creditcard_discount
-        FROM order_headers
+        FROM order_headers WHERE cancellation_status IS NULL
         """
     )
     parts.append(

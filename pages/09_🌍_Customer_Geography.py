@@ -12,6 +12,7 @@ geo = db.fetch_df(
     """
     SELECT oh.province, oh.city, oh.no_pesanan, oh.total_payment
     FROM order_headers oh
+    WHERE oh.cancellation_status IS NULL
     """
 )
 

@@ -13,6 +13,7 @@ headers = db.fetch_df(
     SELECT no_pesanan, total_payment, total_discount, voucher_seller, voucher_shopee,
            cashback_koin, creditcard_discount
     FROM order_headers
+    WHERE cancellation_status IS NULL
     """
 )
 

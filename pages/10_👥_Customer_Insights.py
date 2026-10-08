@@ -8,7 +8,10 @@ st.set_page_config(page_title="Customer Insights - Pospicc", page_icon="👥", l
 st.title("👥 Customer Insights")
 st.caption("Repeat buyer, metode pembayaran favorit, dan suara pembeli langsung dari catatan order.")
 
-headers = db.fetch_df("SELECT no_pesanan, buyer_username, payment_method, total_payment, order_date FROM order_headers")
+headers = db.fetch_df(
+    "SELECT no_pesanan, buyer_username, payment_method, total_payment, order_date "
+    "FROM order_headers WHERE cancellation_status IS NULL"
+)
 
 if headers.empty:
     st.info("Belum ada data order. Hubungkan Shopee API lewat halaman Import Data, atau tunggu sync otomatis berikutnya.")

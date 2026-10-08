@@ -16,9 +16,7 @@ _last_synced_at = None
 def sync_once():
     global _last_synced_at
     now = datetime.utcnow()
-    # First sync (or after a restart) has no prior timestamp - backfill a full
-    # day rather than just the last hour, capped by Shopee's 15-day API limit.
-    since_minutes = 24 * 60 if _last_synced_at is None else (now - _last_synced_at).total_seconds() / 60
+    since_minutes = _compute_since_minutes(now)
 
     products, inventory = shopee_api_client.fetch_products_and_inventory()
     if products:
@@ -31,9 +29,29 @@ def sync_once():
 
     headers, line_items = shopee_api_client.fetch_recent_orders(since_minutes=since_minutes)
     _last_synced_at = now
+    db.mark_data_source("Shopee Order Sync", "system", "Shopee API", "current")
     _save_orders(headers, line_items)
 
     alerts.run_all_checks()
+
+
+def _compute_since_minutes(now: datetime) -> float:
+    """How far back to pull orders for this sync. Prefers the in-memory
+    _last_synced_at (cheap, same-process continuity) but falls back to the
+    PERSISTED last-sync time in Turso when it's unset - e.g. right after the
+    app wakes up from being asleep (Streamlit Community Cloud kills this
+    in-process scheduler whenever nobody's visited for a while, resetting
+    _last_synced_at to None). Without this, a sync after 2+ days asleep would
+    still only backfill a fixed 24h and silently miss the rest of the gap."""
+    if _last_synced_at is not None:
+        return (now - _last_synced_at).total_seconds() / 60
+    last_persisted = db.fetch_df(
+        "SELECT last_updated FROM data_sources WHERE module = 'Shopee Order Sync'"
+    )
+    if not last_persisted.empty and last_persisted.iloc[0]["last_updated"]:
+        last_dt = datetime.fromisoformat(last_persisted.iloc[0]["last_updated"])
+        return max((now - last_dt).total_seconds() / 60, 0)
+    return 24 * 60  # genuinely first-ever sync, nothing persisted to anchor to
 
 
 def backfill_historical(days_back: int) -> int:
@@ -48,6 +66,7 @@ def backfill_historical(days_back: int) -> int:
     now = datetime.utcnow()
     if _last_synced_at is None or now > _last_synced_at:
         _last_synced_at = now  # avoid sync_once() re-pulling the same range next hour
+    db.mark_data_source("Shopee Order Sync", "system", "Shopee API", "current")
     alerts.run_all_checks()
     return len(line_items)
 

@@ -1,0 +1,26 @@
+name: Keep Dashboard Awake
+
+# Streamlit Community Cloud puts the app to sleep after enough inactivity,
+# which also kills the in-process hourly Shopee sync scheduler (it only runs
+# while the app itself is running). This periodically visits the dashboard
+# URL so it stays warm and the scheduler keeps running, even when nobody
+# opens it directly for a while.
+#
+# Note: GitHub auto-disables scheduled workflows on a repo after 60 days with
+# no commits at all - keep making commits to this repo (or re-enable it
+# manually under the Actions tab) if that ever happens.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping dashboard URL
+        run: |
+          curl -sS -o /dev/null -w "HTTP %{http_code}\n" \
+            --max-time 30 \
+            https://pospiccsmartdashboard.streamlit.app

@@ -61,13 +61,14 @@
 
 ---
 
-## 3. Pelajaran arsitektur data (relevan kalau tetap pakai SQL; kalau pindah ke Firestore/NoSQL, baca baik-baik)
+## 3. Pelajaran arsitektur data
 
-- Skema dashboard ini **sangat relasional** — banyak JOIN antar tabel (products ↔ sales_orders ↔ order_headers) dan agregasi (`GROUP BY` + `SUM`/`COUNT`) di hampir semua halaman.
-- **Firestore (NoSQL) TIDAK punya JOIN dan GROUP BY multi-kolom** seperti SQL. Kalau rebuild pakai Firestore, agregasi (total revenue per SKU, jumlah order per provinsi, dst) harus:
-  - Dihitung di sisi aplikasi (ambil banyak dokumen, jumlahkan manual) — bisa lambat/mahal untuk data besar, ATAU
-  - Disimpan sebagai "dokumen ringkasan" terpisah yang di-update otomatis oleh Cloud Function tiap ada data baru masuk (pola umum di Firestore, tapi nambah kompleksitas signifikan dibanding query SQL biasa).
-- Firestore punya fitur aggregation query (`count()`, `sum()`, `average()`) tapi itu cuma untuk SATU query terfilter, bukan pengganti `GROUP BY sku` yang menghasilkan banyak baris sekaligus.
+- Skema dashboard ini **sangat relasional** — banyak JOIN antar tabel (products ↔ sales_orders ↔ order_headers) dan agregasi (`GROUP BY` + `SUM`/`COUNT`) di hampir semua halaman. Platform/database apapun yang dipilih untuk rebuild **harus** mendukung ini secara natural, atau siap-siap nulis ulang banyak logic agregasi secara manual.
+
+- **KALAU PAKAI FIREBASE**: Firebase punya DUA pilihan database yang sangat berbeda karakternya — **jangan asal pilih yang pertama kelihatan (Firestore)** tanpa cek yang satunya dulu:
+  - **Firestore** (NoSQL/dokumen) — ini yang "default"/paling dikenal orang. **TIDAK punya JOIN dan GROUP BY multi-kolom** seperti SQL. Agregasi harus dihitung manual di sisi aplikasi, atau disimpan sebagai "dokumen ringkasan" terpisah yang di-update otomatis oleh Cloud Function tiap ada data baru (pola umum di Firestore, tapi nambah kompleksitas signifikan dibanding query SQL biasa). Ada fitur aggregation query (`count()`, `sum()`, `average()`) tapi itu cuma untuk SATU query terfilter, bukan pengganti `GROUP BY sku` yang menghasilkan banyak baris sekaligus.
+  - **Firebase SQL Connect** (dulu namanya "Data Connect", ditemukan 2026-10-15, **BARU disadari di tengah project ini** — jangan sampai lupa cek ini duluan di rebuild berikutnya!) — ini terhubung ke **Cloud SQL for PostgreSQL asli**, dukung native SQL (bukan cuma GraphQL), berarti JOIN/GROUP BY/agregasi SQL biasa **bisa langsung dipakai** seperti skema kita sekarang. **Jauh lebih cocok** untuk dashboard seperti ini dibanding Firestore. Yang perlu dicek sebelum pakai: kemungkinan ada biaya hosting Cloud SQL di luar free tier Firebase yang biasa (beda dari Firestore yang free tier-nya lumayan besar) — cek harga terbaru sebelum commit.
+  - **Kesimpulan**: kalau rebuild memang jadi ke Firebase, **mulai dari riset SQL Connect dulu**, bukan asumsi harus pakai Firestore/NoSQL.
 
 ---
 

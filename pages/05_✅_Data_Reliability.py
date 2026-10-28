@@ -20,7 +20,7 @@ else:
         col1.markdown(f"{icon} **{row['module']}**")
         col2.write(f"Updated by: {row['updated_by']}")
         col3.write(f"Source: {row['source']}")
-        col4.write(f"Last updated: {row['last_updated']}")
+        col4.write(f"Last updated: {db.utc_to_wib(row['last_updated'])}")
 
     st.divider()
     st.subheader("Governance - Siapa Pemilik Data Apa")

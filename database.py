@@ -11,9 +11,22 @@ query below was rewritten from the old :key form to match.
 """
 import libsql
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import config
+
+
+def utc_to_wib(utc_string: str) -> str:
+    """Convert UTC ISO timestamp to WIB (UTC+7) human-readable format.
+    Example: '2026-10-28T13:38:57.321773' → '28 Oct 2026, 20:38 WIB'"""
+    if not utc_string:
+        return utc_string
+    try:
+        utc_dt = datetime.fromisoformat(utc_string)
+        wib_dt = utc_dt + timedelta(hours=7)
+        return wib_dt.strftime("%d %b %Y, %H:%M WIB")
+    except (ValueError, AttributeError):
+        return utc_string
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS products (

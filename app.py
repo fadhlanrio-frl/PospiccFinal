@@ -98,7 +98,7 @@ else:
         icon = severity_icon.get(row["severity"], "⚪")
         st.write(
             f"{icon} **[{row['alert_type']}]** {row['message']}  \n"
-            f"<span style='color:gray;font-size:0.8em'>{row['triggered_at']} UTC</span>",
+            f"<span style='color:gray;font-size:0.8em'>{db.utc_to_wib(row['triggered_at'])}</span>",
             unsafe_allow_html=True,
         )
 
